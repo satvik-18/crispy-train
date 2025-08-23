@@ -30,9 +30,14 @@ class _EditObjectScreenState extends State<EditObjectScreen> {
   String? _errorMessage;
   Map<String, dynamic> _originalObject = {};
 
+  // Original values for comparison
+  String _originalName = '';
+  Map<String, dynamic> _originalData = {};
+
   // Dynamic fields for custom specifications
   List<MapEntry<TextEditingController, TextEditingController>> _customFields =
       [];
+  List<MapEntry<String, String>> _originalCustomFields = [];
 
   @override
   void initState() {
@@ -68,6 +73,10 @@ class _EditObjectScreenState extends State<EditObjectScreen> {
           _originalObject = objectData;
           _isLoading = false;
         });
+
+        // Store original values for comparison
+        _originalName = objectData['name'] ?? '';
+        _originalData = Map<String, dynamic>.from(objectData['data'] ?? {});
 
         // Populate form fields
         _populateForm(objectData);
@@ -116,6 +125,9 @@ class _EditObjectScreenState extends State<EditObjectScreen> {
             text: entry.value?.toString() ?? '',
           );
           _customFields.add(MapEntry(keyController, valueController));
+          _originalCustomFields.add(
+            MapEntry(entry.key, entry.value?.toString() ?? ''),
+          );
         }
       }
     }
@@ -134,7 +146,87 @@ class _EditObjectScreenState extends State<EditObjectScreen> {
       _customFields[index].key.dispose();
       _customFields[index].value.dispose();
       _customFields.removeAt(index);
+
+      // Also remove from original if it exists
+      if (index < _originalCustomFields.length) {
+        _originalCustomFields.removeAt(index);
+      }
     });
+  }
+
+  // Check what fields have actually changed
+  Map<String, dynamic> _getChangedFields() {
+    Map<String, dynamic> changedData = {};
+
+    // Check common fields for changes
+    final currentData = {
+      'year': _yearController.text.isNotEmpty
+          ? (int.tryParse(_yearController.text) ?? _yearController.text)
+          : null,
+      'price': _priceController.text.isNotEmpty
+          ? (double.tryParse(_priceController.text) ?? _priceController.text)
+          : null,
+      'CPU model': _cpuController.text.isNotEmpty ? _cpuController.text : null,
+      'Hard disk size': _storageController.text.isNotEmpty
+          ? _storageController.text
+          : null,
+      'color': _colorController.text.isNotEmpty ? _colorController.text : null,
+      'capacity': _capacityController.text.isNotEmpty
+          ? _capacityController.text
+          : null,
+      'description': _descriptionController.text.isNotEmpty
+          ? _descriptionController.text
+          : null,
+    };
+
+    // Compare each field with original
+    currentData.forEach((key, value) {
+      final originalValue = _originalData[key];
+
+      // Handle different comparison scenarios
+      bool hasChanged = false;
+
+      if (originalValue == null && value != null) {
+        hasChanged = true; // New field added
+      } else if (originalValue != null && value == null) {
+        hasChanged = true; // Field removed (set to empty)
+      } else if (originalValue != null && value != null) {
+        hasChanged = originalValue.toString() != value.toString();
+      }
+
+      if (hasChanged) {
+        if (value != null) {
+          changedData[key] = value;
+        }
+      }
+    });
+
+    // Handle custom fields
+    for (int i = 0; i < _customFields.length; i++) {
+      final field = _customFields[i];
+      final key = field.key.text;
+      final value = field.value.text;
+
+      if (key.isNotEmpty && value.isNotEmpty) {
+        // Check if this is a new field or changed field
+        bool isNew = true;
+        bool hasChanged = false;
+
+        for (final originalField in _originalCustomFields) {
+          if (originalField.key == key) {
+            isNew = false;
+            hasChanged = originalField.value != value;
+            break;
+          }
+        }
+
+        if (isNew || hasChanged) {
+          changedData[key] = value;
+        }
+      }
+    }
+
+    return changedData;
   }
 
   Future<void> _saveChanges() async {
@@ -154,46 +246,42 @@ class _EditObjectScreenState extends State<EditObjectScreen> {
     });
 
     try {
-      // Build the data object
-      Map<String, dynamic> data = {};
+      // Check if name changed
+      final nameChanged = _nameController.text.trim() != _originalName;
 
-      // Add common fields if they're not empty
-      if (_yearController.text.isNotEmpty) {
-        data['year'] =
-            int.tryParse(_yearController.text) ?? _yearController.text;
-      }
-      if (_priceController.text.isNotEmpty) {
-        data['price'] =
-            double.tryParse(_priceController.text) ?? _priceController.text;
-      }
-      if (_cpuController.text.isNotEmpty) {
-        data['CPU model'] = _cpuController.text;
-      }
-      if (_storageController.text.isNotEmpty) {
-        data['Hard disk size'] = _storageController.text;
-      }
-      if (_colorController.text.isNotEmpty) {
-        data['color'] = _colorController.text;
-      }
-      if (_capacityController.text.isNotEmpty) {
-        data['capacity'] = _capacityController.text;
-      }
-      if (_descriptionController.text.isNotEmpty) {
-        data['description'] = _descriptionController.text;
+      // Get changed data fields
+      final changedData = _getChangedFields();
+
+      // If nothing changed, show message and return
+      if (!nameChanged && changedData.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No changes detected'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
       }
 
-      // Add custom fields
-      for (var field in _customFields) {
-        if (field.key.text.isNotEmpty && field.value.text.isNotEmpty) {
-          data[field.key.text] = field.value.text;
-        }
-      }
+      // Prepare patch request
+      String? newName = nameChanged ? _nameController.text.trim() : null;
+      Map<String, dynamic>? dataToUpdate = changedData.isNotEmpty
+          ? changedData
+          : null;
 
-      final result = await _apiService.updateObject(
+      // Debug information
+      print("Update Request:");
+      print("Name changed: $nameChanged, New name: $newName");
+      print("Data changes: $dataToUpdate");
+      print("Object ID: ${widget.objectId}");
+
+      final result = await _apiService.patchObject(
         id: widget.objectId,
-        name: _nameController.text.trim(),
-        data: data,
+        name: newName,
+        data: dataToUpdate,
       );
+
+      print("Update successful: $result");
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -202,7 +290,7 @@ class _EditObjectScreenState extends State<EditObjectScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.of(context).pop(true); // Return true to indicate success
+        Get.back(result: true); // Return true to indicate success
       }
     } catch (e) {
       if (mounted) {
@@ -351,7 +439,7 @@ class _EditObjectScreenState extends State<EditObjectScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Card
+            // Header Card with PATCH indicator
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
@@ -385,6 +473,26 @@ class _EditObjectScreenState extends State<EditObjectScreen> {
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.green, width: 1),
+                        ),
+                        child: Text(
+                          'PATCH',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 6,
                         ),
@@ -405,7 +513,7 @@ class _EditObjectScreenState extends State<EditObjectScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Modify the product details below',
+                    'Only modified fields will be sent to the server',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.8),
                       fontSize: 14,
@@ -658,7 +766,7 @@ class _EditObjectScreenState extends State<EditObjectScreen> {
                           Icon(Icons.info_outline, color: Colors.grey[500]),
                           const SizedBox(width: 12),
                           Text(
-                            'Add custom fields ',
+                            'Add custom fields to extend product specifications',
                             style: TextStyle(
                               color: Colors.grey[500],
                               fontStyle: FontStyle.italic,
@@ -678,7 +786,7 @@ class _EditObjectScreenState extends State<EditObjectScreen> {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () => Get.back(),
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(color: Colors.grey[600]!),
                       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -686,19 +794,13 @@ class _EditObjectScreenState extends State<EditObjectScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.cancel, color: Colors.grey[400]),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Cancel',
-                          style: TextStyle(
-                            color: Colors.grey[400],
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -707,48 +809,36 @@ class _EditObjectScreenState extends State<EditObjectScreen> {
                   child: ElevatedButton(
                     onPressed: _isSaving ? null : _saveChanges,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.primaryColor,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      elevation: 4,
                     ),
                     child: _isSaving
-                        ? Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
+                        ? SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
                               ),
-                              const SizedBox(width: 12),
-                              Text('Saving...'),
-                            ],
+                            ),
                           )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.save, size: 20),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Save Changes',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
+                        : Text(
+                            'Save Changes',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 32),
           ],
         ),
       ),

@@ -58,11 +58,8 @@ class _SingleobjectscreenState extends State<Singleobjectscreen> {
           if (!isLoading && errorMessage == null && objectInfo.isNotEmpty)
             TextButton.icon(
               onPressed: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => EditObjectScreen(objectId: widget.id),
-                  ),
+                final result = await Get.to(
+                  () => EditObjectScreen(objectId: widget.id),
                 );
                 // Refresh the object data if it was updated
                 if (result == true) {
@@ -165,7 +162,7 @@ class _SingleobjectscreenState extends State<Singleobjectscreen> {
       if (value is num) {
         // Handle price formatting
         if (value > 50 && value < 10000) {
-          return '\${value.toString()}';
+          return '${value.toString()}';
         }
         return value.toString();
       }
@@ -442,11 +439,116 @@ class _SingleobjectscreenState extends State<Singleobjectscreen> {
 
           const SizedBox(height: 24),
 
-          // Back Button
+          // Delete Button (production ready)
           Container(
             width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: isLoading
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2.5,
+                      ),
+                    )
+                  : Icon(Icons.delete, color: Colors.white),
+              label: Text(
+                isLoading ? 'Deleting...' : 'Delete',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 4,
+              ),
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: Text('Delete Object'),
+                          content: Text(
+                            'Are you sure you want to delete this object?',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Get.back(result: false),
+                              child: Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () => Get.back(result: true),
+                              child: Text(
+                                'Delete',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        setState(() {
+                          isLoading = true;
+                        });
+                        try {
+                          final deleted = await _apiService.deleteObject(
+                            widget.id,
+                          );
+                          if (deleted) {
+                            if (mounted) {
+                              Get.back(result: true);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Object deleted successfully'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          } else {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Failed to delete object'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        } finally {
+                          if (mounted) {
+                            setState(() {
+                              isLoading = false;
+                            });
+                          }
+                        }
+                      }
+                    },
+            ),
+          ),
+          SizedBox(height: 20),
+          // Back Button
+          SizedBox(
+            width: double.infinity,
             child: ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Get.back(),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryColor,
                 foregroundColor: Colors.white,

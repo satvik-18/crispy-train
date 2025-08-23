@@ -129,7 +129,7 @@ class _AddObjectScreenState extends State<AddObjectScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.of(context).pop(true); // Return true to indicate success
+        Get.back(result: true); // Return true to indicate success
       }
     } catch (e) {
       if (mounted) {
@@ -501,7 +501,7 @@ class _AddObjectScreenState extends State<AddObjectScreen> {
                             Icon(Icons.info_outline, color: Colors.grey[500]),
                             const SizedBox(width: 12),
                             Text(
-                              'Add custom fields for additional specifications',
+                              'Add custom fields',
                               style: TextStyle(
                                 color: Colors.grey[500],
                                 fontStyle: FontStyle.italic,

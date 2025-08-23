@@ -21,6 +21,7 @@ class _HomepageState extends State<Homepage> {
   ApiServices _apiservice = Get.find<ApiServices>();
   List<dynamic> objectList = [];
   bool _isLoading = true;
+  String? _errorMessage;
   signout() async {
     await FirebaseAuth.instance.signOut();
     Get.to(() => Phonehome());
@@ -34,18 +35,69 @@ class _HomepageState extends State<Homepage> {
 
   void _loadData() async {
     try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
       final data = await _apiservice.fetchObjects();
       if (mounted) {
         setState(() {
+          objectList.clear(); // Clear existing list
           objectList.addAll(data);
+          _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to load data: $e';
+          _isLoading = false;
+        });
+
         // Handle error - show snackbar, dialog, etc.
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to load data: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load data: $e'),
+            backgroundColor: Colors.red,
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: _loadData,
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  // Add pull to refresh functionality
+  Future<void> _refreshData() async {
+    _loadData();
+  }
+
+  Future<void> _testNewObjectExists(String objectId) async {
+    try {
+      final object = await _apiservice.getSingleObject(objectId);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Object $objectId exists! Name: ${object['name']}'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      print("Object $objectId not found: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Object $objectId not found: $e'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
       }
     }
   }
@@ -57,6 +109,19 @@ class _HomepageState extends State<Homepage> {
         title: Text("Homepage"),
 
         backgroundColor: AppColors.primaryColor,
+        actions: [
+          IconButton(
+            onPressed: () {
+              Get.find<ThemeController>().toggleTheme();
+            },
+            icon: Icon(Icons.brightness_6),
+          ),
+          IconButton(
+            onPressed: _refreshData,
+            icon: Icon(Icons.refresh),
+            tooltip: 'Refresh Objects',
+          ),
+        ],
       ),
 
       body: Column(
@@ -150,7 +215,7 @@ class _HomepageState extends State<Homepage> {
                 String formatValue(dynamic value) {
                   if (value is num) {
                     if (value > 50 && value < 10000) {
-                      return '\$${value.toString()}';
+                      return value.toString();
                     }
                     return value.toString();
                   }
@@ -403,7 +468,7 @@ class _HomepageState extends State<Homepage> {
                                             ],
                                           ),
                                         );
-                                      }).toList(),
+                                      }),
                                     ],
                                   ),
                                 )
@@ -458,12 +523,7 @@ class _HomepageState extends State<Homepage> {
           FloatingActionButton(
             heroTag: "add_object",
             onPressed: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const AddObjectScreen(),
-                ),
-              );
+              final result = await Get.to(() => const AddObjectScreen());
               // Refresh the list if object was created successfully
               if (result == true) {
                 setState(() {
@@ -492,7 +552,7 @@ class _HomepageState extends State<Homepage> {
                 ),
                 actions: [
                   TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () => Get.back(),
                     child: Text(
                       "Cancel",
                       style: TextStyle(color: Colors.grey[400]),
@@ -501,7 +561,7 @@ class _HomepageState extends State<Homepage> {
                   ElevatedButton(
                     onPressed: () {
                       signout();
-                      Navigator.of(context).pop();
+                      Get.back();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
