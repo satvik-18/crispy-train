@@ -1,4 +1,4 @@
-import 'package:crispy_train/homepage.dart';
+import 'package:crispy_train/screens/homepage.dart';
 import 'package:crispy_train/auth/loginpage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';

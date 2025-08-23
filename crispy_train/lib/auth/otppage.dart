@@ -1,5 +1,5 @@
 import 'package:crispy_train/main.dart';
-import 'package:crispy_train/wrapper.dart';
+import 'package:crispy_train/screens/wrapper.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:pinput/pinput.dart';
