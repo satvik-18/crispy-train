@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "382606243557",
+    "project_id": "frontend-f5abf",
+    "storage_bucket": "frontend-f5abf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:382606243557:android:4739645ba6b27aecf1c60c",
+        "android_client_info": {
+          "package_name": "com.example.crispy_train"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAFBq8KaDdoT7RWI1MWL0qBa6U2ueu5VvY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
