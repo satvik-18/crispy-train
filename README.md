@@ -5,7 +5,8 @@ Installable Android APK: https://drive.google.com/file/d/16rIGPZ88ZO7cNNIqAiz-Dk
 
 Hosting URL: https://frontend-f5abf.web.app
 
-<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/059a5354-6792-41d1-9d58-f925717812ba" />
+<img width="902" height="725" alt="image" src="https://github.com/user-attachments/assets/dde1e513-7cb2-4370-a4f7-2378205aa168" />
+
 
 Live Web Version: Visit App
 ## Table of Contents
